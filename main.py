@@ -12,12 +12,14 @@ class NginxStreamBlock(object):
   def __init__(self):
     self.__upstream_servers = []
     self.__upstream_nnp = []
-    with open("conf.yaml", "r") as config:
-      try:
-        self.upstream_servers = yaml.safe_load(
-            config)["upstream_servers"]
-      except yaml.YAMLError as exc:
-        print(exc)
+
+    # if file exists, load it
+    try:
+      with open("conf.yaml", "r") as f:
+        conf = yaml.safe_load(f)
+        self.__upstream_servers = conf["upstream_servers"]
+    except:
+      print("Error: conf.yaml file found.\n")
 
   def upstream(self, upstream_servers: list = []):
     """
@@ -28,15 +30,28 @@ class NginxStreamBlock(object):
       upstream_servers = ast.literal_eval(upstream_servers)
 
     if upstream_servers:
-      self.upstream_servers = upstream_servers
+      self.__upstream_servers = upstream_servers
+
+    return self
 
   def nnp(self, upstream_nnp: list):
     """
     Load Names and Ports.
     Upstream name and port (nnp) in the format name:port.
     """
-    self.upstream_nnp = upstream_nnp
+    if self.__check_upstream_servers():
+      return
+
+    self.__upstream_nnp = upstream_nnp
     self.__main()
+
+  def __check_upstream_servers(self):
+    """
+    Check if upstream servers are provided.
+    """
+    if not self.__upstream_servers:
+      print("Error: No upstream servers provided.\n")
+      return True
 
   def __generate_block_comment(self, name: str):
     """
@@ -50,9 +65,9 @@ class NginxStreamBlock(object):
     Generate list of upstream servers.
     """
     upstream_list = ""
-    for nnp in self.upstream_servers:
+    for nnp in self.__upstream_servers:
       upstream_list += f"server {nnp}:{port};"
-      if not nnp == self.upstream_servers[-1]:
+      if not nnp == self.__upstream_servers[-1]:
         upstream_list += "\n\t"
     return upstream_list
 
@@ -84,9 +99,12 @@ class NginxStreamBlock(object):
     """
     Main function.
     """
-    combined_blocks = []
+    # if not self.__upstream_servers:
+    #   print("No upstream servers provided.")
+    #   return
 
-    for nnp in self.upstream_nnp:
+    combined_blocks = []
+    for nnp in self.__upstream_nnp:
       comment = self.__generate_block_comment(nnp.split(":")[0])
       upstream_block = self.__generate_upstream_block(nnp).rstrip()
       server_block = self.__generate_server_block(nnp)
